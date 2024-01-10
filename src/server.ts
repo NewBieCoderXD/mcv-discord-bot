@@ -1,12 +1,15 @@
 import * as cheerio from "cheerio"
 import * as dotenv from "dotenv"
 import * as db from "./database"
+import express, {Request,Response} from "express"
 dotenv.config({
     path:"./.env"
 })
 
 const targetYear = 2023;
 const targetSemester = 2;
+
+const app = express();
 
 let assignmentsStack: Array<db.Assignment>=[];
 
@@ -82,27 +85,13 @@ async function updateAssignments(mcvID:number){
     })
 }
 
-!async function start(){
-    // let result = await sql`
-    //     SELECT * FROM assignments
-    // `
-    // console.log(result)
+app.get("/",(req,res)=>{
+    res.send("gg");
+})
 
-    // if(process.env["COOKIE"]==undefined){
-    //     return;
-    // }
-    // let courseId="37700";
-    // let result = await fetch(`https://www.mycourseville.com/?q=courseville/course/${courseId}/assignment`,{
-    //     method: "get",
-    //     headers:{
-    //         Cookie:process.env["COOKIE"]
-    //     }
-    // }).then((res)=>res.text())
-    // const $ = cheerio.load(result);
-    // console.log($(("#cv-assignment-table tbody tr td:nth-child(2) a")).map((i:number,ele:cheerio.Element)=>{
-    //     return $(ele).html();
-    // }).get());
-}()
+// !async function start(){
+
+// }()
 
 // updateCourses()
-updateAssignments(37700);
+// updateAssignments(37700);
