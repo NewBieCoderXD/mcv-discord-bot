@@ -7,3 +7,22 @@ export async function exists(table:string,object:any,checkingKey:string): Promis
     `
     return found[0].exists;
 }
+
+export async function insertInto(table:string,object:any){
+    await sql`
+        INSERT INTO ${sql(table)} ${sql(object)}
+    `
+}
+
+export interface Course{
+    mcvID: number,
+    courseID: string,
+    title: string,
+    year: number,
+    semester: number
+}
+
+export interface Assignment{
+    mcvCourseID: number,
+    assignmentName: string
+}
