@@ -96,4 +96,5 @@ app.get("/",(req,res)=>{
 // updateCourses()
 // updateAssignments(37700);
 
+console.log("gg")
 app.listen(8080);
