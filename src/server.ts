@@ -95,3 +95,5 @@ app.get("/",(req,res)=>{
 
 // updateCourses()
 // updateAssignments(37700);
+
+app.listen(8080);
