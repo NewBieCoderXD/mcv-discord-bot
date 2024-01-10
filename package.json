@@ -15,6 +15,6 @@
     "tsc": "^2.0.4"
   },
   "scripts": {
-    "start": "ts-node -P ./tsconfig.json"
+    "start": "node build/src/server.js"
   }
 }
