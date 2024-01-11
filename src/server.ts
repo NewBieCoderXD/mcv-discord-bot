@@ -1,7 +1,7 @@
 import * as cheerio from "cheerio"
 import * as dotenv from "dotenv"
 import * as db from "./database"
-import {Client, GatewayIntentBits, Interaction, TextChannel} from "discord.js"
+import {Client, DMChannel, GatewayIntentBits, Interaction, TextChannel} from "discord.js"
 import express, {Request,Response} from "express"
 dotenv.config({
     path:"./.env"
@@ -9,6 +9,13 @@ dotenv.config({
 
 const targetYear = 2023;
 const targetSemester = 2;
+
+let adminDM : DMChannel;
+
+/**
+ * @description interval of updating in minutes
+ */
+const intervalTime=3;
 
 const app = express();
 const client = new Client({
@@ -82,7 +89,6 @@ async function update(){
     }
     let messageObject: any={};
     if(assignmentsStack.length==0){
-        console.log("0")
         return "";
     }
     while(assignmentsStack.length!=0){
@@ -106,8 +112,25 @@ async function update(){
 // updateCourses()
 // updateAssignments(37700);
 
-client.on("ready",()=>{
-    console.log("logged in")
+async function updateHandler(){
+    console.log("new interval starts "+(new Date()).toISOString())
+    let message = await update();
+    if(message==""){
+        return;
+    }
+    // console.log("message "+message)
+    let channels = db.notifyChannels.find();
+    for await (let channel of channels){
+        let discordChannel = client.channels.cache.get(channel.channelID) as TextChannel;
+        discordChannel.send(message);
+    }
+}
+
+client.on("ready",async ()=>{
+    console.log("logged in "+(new Date()).toISOString());
+    adminDM = await client.users.createDM(process.env["ADMIN_USER_ID"]!);
+    await updateHandler();
+    setInterval(updateHandler,intervalTime*60*1000)
 })
 
 client.on("interactionCreate",async (interaction)=>{
@@ -157,8 +180,11 @@ client.on("interactionCreate",async (interaction)=>{
     }
     catch(e){
         console.log(e);
+        adminDM.send((e as any).stack)
         await interaction.editReply("Error occured!");
     }
 })
+
+
 
 client.login(process.env["DISCORD_TOKEN"])

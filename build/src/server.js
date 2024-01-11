@@ -52,6 +52,11 @@ dotenv.config({
 });
 const targetYear = 2023;
 const targetSemester = 2;
+let adminDM;
+/**
+ * @description interval of updating in minutes
+ */
+const intervalTime = 3;
 const app = (0, express_1.default)();
 const client = new discord_js_1.Client({
     intents: [
@@ -137,7 +142,6 @@ function update() {
         }
         let messageObject = {};
         if (assignmentsStack.length == 0) {
-            console.log("0");
             return "";
         }
         while (assignmentsStack.length != 0) {
@@ -160,9 +164,41 @@ function update() {
 }
 // updateCourses()
 // updateAssignments(37700);
-client.on("ready", () => {
-    console.log("logged in");
-});
+function updateHandler() {
+    var _a, e_2, _b, _c;
+    return __awaiter(this, void 0, void 0, function* () {
+        console.log("new interval starts " + (new Date()).toISOString());
+        let message = yield update();
+        if (message == "") {
+            return;
+        }
+        // console.log("message "+message)
+        let channels = db.notifyChannels.find();
+        try {
+            for (var _d = true, channels_1 = __asyncValues(channels), channels_1_1; channels_1_1 = yield channels_1.next(), _a = channels_1_1.done, !_a; _d = true) {
+                _c = channels_1_1.value;
+                _d = false;
+                let channel = _c;
+                let discordChannel = client.channels.cache.get(channel.channelID);
+                discordChannel.send(message);
+            }
+        }
+        catch (e_2_1) { e_2 = { error: e_2_1 }; }
+        finally {
+            try {
+                if (!_d && !_a && (_b = channels_1.return)) yield _b.call(channels_1);
+            }
+            finally { if (e_2) throw e_2.error; }
+        }
+    });
+}
+client.on("ready", () => __awaiter(void 0, void 0, void 0, function* () {
+    console.log("logged in " + (new Date()).toISOString());
+    adminDM = yield client.users.createDM(process.env["ADMIN_USER_ID"]);
+    adminDM.send("test");
+    yield updateHandler();
+    setInterval(updateHandler, intervalTime * 60 * 1000);
+}));
 client.on("interactionCreate", (interaction) => __awaiter(void 0, void 0, void 0, function* () {
     if (!interaction.isChatInputCommand() || interaction.guildId == null) {
         return;
@@ -206,6 +242,7 @@ client.on("interactionCreate", (interaction) => __awaiter(void 0, void 0, void 0
     }
     catch (e) {
         console.log(e);
+        adminDM.send(e.stack);
         yield interaction.editReply("Error occured!");
     }
 }));

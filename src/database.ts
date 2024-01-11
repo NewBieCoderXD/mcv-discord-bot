@@ -15,7 +15,7 @@ const client = new MongoClient(process.env["MONGO_SECRET"]!)
 const database = client.db("mcv-discord")
 const courses = database.collection<Course>(collecName.courses)
 const assignments = database.collection<Assignment>(collecName.assignments)
-const notifyChannels = database.collection<Channel>(collecName.notificationChannels)
+export const notifyChannels = database.collection<Channel>(collecName.notificationChannels)
 
 export async function exists(table:string,object:any,checkingKey:string): Promise<boolean> {
     let searchObject: any={};
