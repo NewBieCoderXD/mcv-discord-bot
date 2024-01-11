@@ -38,7 +38,15 @@ const rest = new discord_js_1.REST({ version: '10' }).setToken(process.env["DISC
 const commands = [
     {
         name: "setnotification",
-        description: "set this channel for mycourseville notification",
+        description: "Set this channel for MyCourseVille notification",
+    },
+    {
+        name: "unsetnotification",
+        description: "Unset this channel for MyCourseVille notification"
+    },
+    {
+        name: "update",
+        description: "Update assignments list to notification channel"
     }
 ];
 rest.put(discord_js_1.Routes.applicationCommands(process.env["CLIENT_ID"]), { body: commands });

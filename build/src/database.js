@@ -32,21 +32,22 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.remove = exports.getCoursesList = exports.insertInto = exports.exists = exports.collecName = void 0;
+exports.getCourse = exports.getChannelFromGuild = exports.removeChannelFromGuild = exports.getCoursesList = exports.insertInto = exports.exists = exports.collecName = void 0;
 const mongodb_1 = require("mongodb");
 const dotenv = __importStar(require("dotenv"));
 dotenv.config({
     path: "./.env"
 });
-const client = new mongodb_1.MongoClient(process.env["MONGO_SECRET"]);
-const database = client.db("mcv-discord");
-const courses = database.collection("courses");
-const assignments = database.collection("assignments");
 exports.collecName = {
     courses: "courses",
     assignments: "assignments",
     notificationChannels: "notificationChannels"
 };
+const client = new mongodb_1.MongoClient(process.env["MONGO_SECRET"]);
+const database = client.db("mcv-discord");
+const courses = database.collection(exports.collecName.courses);
+const assignments = database.collection(exports.collecName.assignments);
+const notifyChannels = database.collection(exports.collecName.notificationChannels);
 function exists(table, object, checkingKey) {
     return __awaiter(this, void 0, void 0, function* () {
         let searchObject = {};
@@ -68,9 +69,21 @@ function getCoursesList() {
     });
 }
 exports.getCoursesList = getCoursesList;
-function remove(table) {
+function removeChannelFromGuild(guildID) {
     return __awaiter(this, void 0, void 0, function* () {
-        yield database.collection(table).deleteMany({});
+        return yield notifyChannels.deleteOne({ guildID });
     });
 }
-exports.remove = remove;
+exports.removeChannelFromGuild = removeChannelFromGuild;
+function getChannelFromGuild(guildID) {
+    return __awaiter(this, void 0, void 0, function* () {
+        return yield notifyChannels.findOne({ guildID });
+    });
+}
+exports.getChannelFromGuild = getChannelFromGuild;
+function getCourse(mcvID) {
+    return __awaiter(this, void 0, void 0, function* () {
+        return yield courses.findOne({ mcvID });
+    });
+}
+exports.getCourse = getCourse;

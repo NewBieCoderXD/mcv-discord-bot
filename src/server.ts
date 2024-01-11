@@ -1,7 +1,7 @@
 import * as cheerio from "cheerio"
 import * as dotenv from "dotenv"
 import * as db from "./database"
-import {Client, GatewayIntentBits, Interaction} from "discord.js"
+import {Client, GatewayIntentBits, Interaction, TextChannel} from "discord.js"
 import express, {Request,Response} from "express"
 dotenv.config({
     path:"./.env"
@@ -63,60 +63,102 @@ async function updateAssignments(mcvID:number){
         }
         let found=await db.exists(db.collecName.assignments,assignment,"mcvCourseID");
         if(!found){
+            // console.log("inserting...")
             assignmentsStack.push(assignment);
             db.insertInto(db.collecName.assignments,assignment);
         }
     })
 }
 
-!async function start(){
+/**
+ * 
+ * @returns updating message
+ */ 
+async function update(){
     await updateCourses();
     let coursesList = await db.getCoursesList();
     for await (const courses of coursesList){
-        updateAssignments(courses.mcvID);
+        await updateAssignments(courses.mcvID);
     }
-
-}()
+    let messageObject: any={};
+    if(assignmentsStack.length==0){
+        console.log("0")
+        return "";
+    }
+    while(assignmentsStack.length!=0){
+        let assignment = assignmentsStack.pop();
+        let course = await db.getCourse(assignment!.mcvCourseID) as db.Course;
+        if(messageObject[course.title]==null){
+            messageObject[course.title]=[];
+        }
+        messageObject[course.title].push(assignment!.assignmentName);
+    }
+    let message:string = "## New Assignments!!";
+    for(let courseTitle in messageObject){
+        message+=`\n- ${courseTitle}`
+        for(let assignmentName of messageObject[courseTitle]){
+            message+=`\n - ${assignmentName}`
+        }
+    }
+    return message;
+}
 
 // updateCourses()
 // updateAssignments(37700);
-
-// db.exists("courses",{mcvID:37700},"mcvID");
 
 client.on("ready",()=>{
     console.log("logged in")
 })
 
 client.on("interactionCreate",async (interaction)=>{
-    if(!interaction.isChatInputCommand()){
-
+    if(!interaction.isChatInputCommand()||interaction.guildId==null){
         return;
     }
-    else if(interaction.commandName=="setnotification"){
-        try{
-            let channel = {
-                guildID: interaction.guildId,
-                channelID: interaction.channelId,
-            }
-            let found = await db.exists(db.collecName.notificationChannels,channel,"channelID")
+    let channel:db.Channel = {
+        guildID: interaction.guildId!,
+        channelID: interaction.channelId!,
+    }
+    await interaction.reply("working on it...")
+    try{
+        if(interaction.commandName=="setnotification"){
+            let found = await db.exists(db.collecName.notificationChannels,channel,"guildID")
             if(found){
-                await interaction.reply(
-                    `This has already been set!\nTo disable: /stopnotification`
+                await interaction.editReply(
+                    `This server's notification channel has already been set!\nTo disable: /unsetnotification`
                 )
                 return;
             }
             db.insertInto(db.collecName.notificationChannels,channel);
-            await interaction.reply("Done!");
-        }
-        catch(e){
-            console.log(e);
-            await interaction.reply("Error occured!");
-        }
-    }
-})
 
-client.on("messageCreate",(message)=>{
-    console.log(message);
+            await interaction.editReply("Done!");
+        }
+        else if(interaction.commandName=="unsetnotification"){
+            let result = await db.removeChannelFromGuild(interaction.guildId);
+            if(result.deletedCount==0){
+                await interaction.editReply("An error occurred, are you sure this server has notification channel?")
+                return;
+            }
+            await interaction.editReply("Successfully stop notification in this channel")
+        }
+        else if(interaction.commandName="update"){
+            let result = await update();
+            if(result!=""){
+                let channel = await db.getChannelFromGuild(interaction.guildId);
+                let discordChannel = client.channels.cache.get(channel?.channelID!) as TextChannel;
+                discordChannel.send(result);
+                await interaction.editReply("Done!");
+                return;
+            }
+            else{
+                await interaction.editReply("Assignments are up to date!");
+            }
+        }
+        
+    }
+    catch(e){
+        console.log(e);
+        await interaction.editReply("Error occured!");
+    }
 })
 
 client.login(process.env["DISCORD_TOKEN"])

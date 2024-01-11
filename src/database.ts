@@ -4,16 +4,18 @@ import { data } from "cheerio/lib/api/attributes"
 dotenv.config({
     path:"./.env"
 })
-const client = new MongoClient(process.env["MONGO_SECRET"]!)
-const database = client.db("mcv-discord")
-const courses = database.collection<Course>("courses")
-const assignments = database.collection<Assignment>("assignments")
 
 export const collecName={
     courses:"courses",
     assignments:"assignments",
     notificationChannels: "notificationChannels"
 }
+
+const client = new MongoClient(process.env["MONGO_SECRET"]!)
+const database = client.db("mcv-discord")
+const courses = database.collection<Course>(collecName.courses)
+const assignments = database.collection<Assignment>(collecName.assignments)
+const notifyChannels = database.collection<Channel>(collecName.notificationChannels)
 
 export async function exists(table:string,object:any,checkingKey:string): Promise<boolean> {
     let searchObject: any={};
@@ -23,6 +25,7 @@ export async function exists(table:string,object:any,checkingKey:string): Promis
 }
 
 export async function insertInto(table:string,object:any){
+    
     let result = await database.collection(table).insertOne(object);
 }
 
@@ -30,9 +33,21 @@ export async function getCoursesList(){
     return await courses.find({});
 }
 
-export async function remove(table:string){
-    await database.collection(table).deleteMany({});
+export async function removeChannelFromGuild(guildID:string){
+    return await notifyChannels.deleteOne({guildID});
 }
+
+export async function getChannelFromGuild(guildID:string){
+    return await notifyChannels.findOne({guildID});
+}
+
+export async function getCourse(mcvID:number){
+    return await courses.findOne({mcvID});
+}
+
+// export async function remove(table:string){
+//     await database.collection(table).deleteMany({});
+// }
 
 export interface Course{
     mcvID: number,
@@ -45,4 +60,9 @@ export interface Course{
 export interface Assignment{
     mcvCourseID: number,
     assignmentName: string
+}
+
+export interface Channel{
+    guildID: string,
+    channelID: string,
 }
