@@ -1,17 +1,37 @@
-import sql from "./sql"
-import escapeString from "escape-sql-string"
+import {MongoClient} from "mongodb"
+import * as dotenv from "dotenv"
+import { data } from "cheerio/lib/api/attributes"
+dotenv.config({
+    path:"./.env"
+})
+const client = new MongoClient(process.env["MONGO_SECRET"]!)
+const database = client.db("mcv-discord")
+const courses = database.collection<Course>("courses")
+const assignments = database.collection<Assignment>("assignments")
+
+export const collecName={
+    courses:"courses",
+    assignments:"assignments",
+    notificationChannels: "notificationChannels"
+}
 
 export async function exists(table:string,object:any,checkingKey:string): Promise<boolean> {
-    let found = await sql`
-        SElECT EXISTS(SELECT 1 FROM ${sql(table)} WHERE ${sql(checkingKey)} = ${object[checkingKey] as string})
-    `
-    return found[0].exists;
+    let searchObject: any={};
+    searchObject[checkingKey]=object[checkingKey];
+    let found = await database.collection(table).findOne(searchObject)
+    return found!=null;
 }
 
 export async function insertInto(table:string,object:any){
-    await sql`
-        INSERT INTO ${sql(table)} ${sql(object)}
-    `
+    let result = await database.collection(table).insertOne(object);
+}
+
+export async function getCoursesList(){
+    return await courses.find({});
+}
+
+export async function remove(table:string){
+    await database.collection(table).deleteMany({});
 }
 
 export interface Course{

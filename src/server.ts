@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio"
 import * as dotenv from "dotenv"
 import * as db from "./database"
+import {Client, GatewayIntentBits, Interaction} from "discord.js"
 import express, {Request,Response} from "express"
 dotenv.config({
     path:"./.env"
@@ -10,6 +11,12 @@ const targetYear = 2023;
 const targetSemester = 2;
 
 const app = express();
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages
+    ]
+})
 
 let assignmentsStack: Array<db.Assignment>=[];
 
@@ -32,36 +39,13 @@ async function updateCourses(){
             mcvID: parseInt($(ele).attr("cv_cid")!),
             title: $(ele).attr("title")!,
         }
-        let found = await db.exists("courses",course,"mcvID")
+        let found = await db.exists(db.collecName.courses,course,"mcvID")
         if(!found){
-            db.insertInto("courses",course);
-            // let result = await sql`
-            //     INSERT INTO courses ${sql(course)}
-            // `
+            console.log("inserting... "+course.courseID)
+            db.insertInto(db.collecName.courses,course);
         }
 
     })
-}
-
-async function loadMore(){
-    // let requestJSON: any = {
-    //     "cv_cid": mcvID,
-    //     next: "1"
-    // }
-    // let formData = new FormData();
-    // Object.keys(requestJSON).forEach((key:string)=>{
-    //     formData.append(key,requestJSON[key].toString())
-    // })
-    // console.log(formData);
-    // let response = await fetch("https://www.mycourseville.com/?q=courseville/ajax/loadmoreassignmentrows",{
-    //     method: "POST",
-    //     headers:{
-    //         Cookie: process.env["COOKIE"]!
-    //     },
-    //     body: formData
-    // }).then(res=>res.text());
-    // console.log(response);
-    // const $ = cheerio.load(response);
 }
 
 async function updateAssignments(mcvID:number){
@@ -77,24 +61,62 @@ async function updateAssignments(mcvID:number){
             mcvCourseID:mcvID,
             assignmentName:$(ele).text()
         }
-        let found=await db.exists("assignments",assignment,"mcvCourseID");
+        let found=await db.exists(db.collecName.assignments,assignment,"mcvCourseID");
         if(!found){
             assignmentsStack.push(assignment);
-            db.insertInto("assignments",assignment);
+            db.insertInto(db.collecName.assignments,assignment);
         }
     })
 }
 
-app.get("/",(req,res)=>{
-    res.send("gg");
-})
+!async function start(){
+    await updateCourses();
+    let coursesList = await db.getCoursesList();
+    for await (const courses of coursesList){
+        updateAssignments(courses.mcvID);
+    }
 
-// !async function start(){
-
-// }()
+}()
 
 // updateCourses()
 // updateAssignments(37700);
 
-console.log("gg")
-app.listen(8080);
+// db.exists("courses",{mcvID:37700},"mcvID");
+
+client.on("ready",()=>{
+    console.log("logged in")
+})
+
+client.on("interactionCreate",async (interaction)=>{
+    if(!interaction.isChatInputCommand()){
+
+        return;
+    }
+    else if(interaction.commandName=="setnotification"){
+        try{
+            let channel = {
+                guildID: interaction.guildId,
+                channelID: interaction.channelId,
+            }
+            let found = await db.exists(db.collecName.notificationChannels,channel,"channelID")
+            if(found){
+                await interaction.reply(
+                    `This has already been set!\nTo disable: /stopnotification`
+                )
+                return;
+            }
+            db.insertInto(db.collecName.notificationChannels,channel);
+            await interaction.reply("Done!");
+        }
+        catch(e){
+            console.log(e);
+            await interaction.reply("Error occured!");
+        }
+    }
+})
+
+client.on("messageCreate",(message)=>{
+    console.log(message);
+})
+
+client.login(process.env["DISCORD_TOKEN"])
