@@ -1,14 +1,10 @@
-import {update, updateAssignments, updateCourses, updateHandler} from "./utils/utils"
+import {formatDateToBangkok, update, updateAssignments, updateCourses, updateHandler} from "./utils/utils"
 import {Client,GatewayIntentBits} from "discord.js"
 import type {DMChannel, Interaction, CacheType, ChatInputCommandInteraction, TextChannel} from "discord.js"
-import {intervalTime} from "./config/config"
 import * as db from "./database/database"
 import { getCommands, toDiscordCommandBody } from "./discord/getCommands"
 import { registerCommands } from "./discord/registerCommands"
-import * as dotenv from "dotenv"
-dotenv.config({
-    path:"./.env"
-})
+import { env } from "./utils/env"
 
 export let assignmentsStack: Array<db.Assignment>=[];
 
@@ -21,14 +17,14 @@ export const client = new Client({
 export let adminDM : DMChannel;
 let commands: CommandHandler;
 
-interface CommandHandler{
+export interface CommandHandler{
     [name: string]: {
         description: string,
         callback: (interaction: ChatInputCommandInteraction<CacheType>,calledChannel: db.Channel) => Promise<any>
     }
 }
 
-client.on("interactionCreate",async (interaction)=>{
+client.on("interactionCreate",async (interaction: Interaction)=>{
     if(!interaction.isChatInputCommand()||interaction.guildId==null){
         return;
     }
@@ -40,7 +36,7 @@ client.on("interactionCreate",async (interaction)=>{
                 guildID:interaction.guildId,
                 channelID:interaction.channelId
             }
-            await command.callback(interaction,calledChannel);
+            await command.callback(interaction, calledChannel);
         }
         else{
             await interaction.reply("command not found")
@@ -58,18 +54,18 @@ client.on("interactionCreate",async (interaction)=>{
  */
 async function start(){
     commands=await getCommands()
-    await registerCommands(commands);
+    registerCommands(commands);
 }
 
 start();
 
 client.on("ready",async ()=>{
-    console.log("logged in "+(new Date()).toString());
-    adminDM = await client.users.createDM(process.env.ADMIN_USER_ID!);
+    console.log("Server started at "+formatDateToBangkok(new Date()));
+    adminDM = await client.users.createDM(env.ADMIN_USER_ID);
     adminDM.send("server is up!");
 
     await updateHandler();
-    setInterval(updateHandler,intervalTime*60*1000);
+    setInterval(updateHandler,env.DELAY*1000);
 })
 
-client.login(process.env.DISCORD_TOKEN)
+client.login(env.DISCORD_TOKEN)

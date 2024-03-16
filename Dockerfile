@@ -1,10 +1,18 @@
-FROM node:20-alpine
+# Use a specific node version for predictability
+FROM node:20-slim
+# add dependencies
+RUN apt-get update && apt-get install -y openssl
+
+# Set working directory
 WORKDIR /home/node/app
-USER root
-COPY --chown=root:node package*.json ./
-RUN npm install -g typescript
-RUN npm install
-COPY --chown=root:node . .
-RUN npx prisma generate
-RUN tsc
-CMD ["node","./build/src/index.js"]
+
+COPY . .
+
+# Install dependencies
+RUN npm ci
+
+RUN npm run build
+
+# Start the app, do migrations first
+CMD ["npm", "start"]
+HEALTHCHECK --interval=30s --timeout=30s --retries=3 CMD exit 0

@@ -1,21 +1,16 @@
 import * as cheerio from "cheerio"
-import * as dotenv from "dotenv"
 import * as db from "../database/database"
 import {targetYear, targetSemester} from "../config/config"
 import {adminDM, assignmentsStack, client} from "../index"
 import { TextChannel } from "discord.js"
-dotenv.config({
-    path:"./.env"
-})
+import { env } from "./env"
+import { assignmentsCache, coursesCache } from "../database/cache"
 
 export async function updateCourses(){
-    if(process.env["COOKIE"]==undefined){
-        return;
-    }
     let response = await fetch(`https://www.mycourseville.com/`,{
         method: "get",
         headers:{
-            Cookie:process.env.COOKIE
+            Cookie: env.COOKIE
         }
     }).then(res=>res.text());
     const $ = cheerio.load(response);
@@ -41,10 +36,14 @@ export async function updateCourses(){
     }
 }
 
+async function throwErrorToAdmin(msg:string){
+    await adminDM.send(msg);
+    throw new Error(msg);
+}
+
 async function IsInvalidResponse($: cheerio.Root){
     if($("#courseville-login-w-platform-cu-button").length!=0){
-        await adminDM.send("Cookie is invalid");
-        throw new Error("Cookie is invalid");
+        await throwErrorToAdmin("Cookie is invalid")
     }
     return false;
 }
@@ -53,9 +52,15 @@ export async function updateAssignments(mcvID:number){
     let response = await fetch(`https://www.mycourseville.com/?q=courseville/course/${mcvID}/assignment`,{
         method:"GET",
         headers:{
-            Cookie: process.env["COOKIE"]!
+            Cookie: env.COOKIE!
         }
-    }).then(res=>res.text())
+    }).then(res=>{
+        if(res.status!=200){
+            throwErrorToAdmin("Error fetching, Might be rate limited or server is down")
+        }
+        return res.text()
+    })
+    
     const $ = cheerio.load(response);
     if(await IsInvalidResponse($)){
         return;
@@ -81,13 +86,13 @@ export async function updateAssignments(mcvID:number){
  * @returns message containing new added assignments
  */
 export async function update(){
-    // updateCourses();
+    updateCourses();
+    // console.log(assignmentsCache.keys(),coursesCache.keys())
     let coursesList = await db.getAllCourses();
     for await (const courses of coursesList){
         await updateAssignments(courses.mcvID);
     }
     let messageObject: any={};
-    console.log(assignmentsStack)
     if(assignmentsStack.length==0){
         return "";
     }
@@ -113,16 +118,21 @@ export async function update(){
 * @description update assignments and send message to all notification channels
 *  */
 export async function updateHandler(){
-   console.log("new interval starts "+(new Date()).toString())
-   let message = await update();
-   if(message==""){
-       return;
-   }
-   let channels = await db.getAllChannels();
-   for await (let channel of channels){
-        console.log(message)
-        let discordChannel = client.channels.cache.get(channel.channelID) as TextChannel;
-        // adminDM.send(message);
-        await discordChannel.send(message);
-   }
+    if(env.INTERVAL_LOGGING){
+        console.log("new interval started at "+formatDateToBangkok(new Date()))
+    }
+    let message = await update();
+    if(message==""){
+        return;
+    }
+    let channels = await db.getAllChannels();
+    for await (let channel of channels){
+            let discordChannel = client.channels.cache.get(channel.channelID) as TextChannel;
+            // adminDM.send(message);
+            await discordChannel.send(message);
+    }
+}
+
+export function formatDateToBangkok(date: Date){
+    return date.toLocaleString('en-US',{timeZone:'Asia/Bangkok'})+" GMT+0700('Asia/Bangkok')"
 }
